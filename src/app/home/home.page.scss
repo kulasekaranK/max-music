@@ -1,0 +1,54 @@
+.skeleton-loader {
+  padding: 16px;
+}
+
+.skeleton-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ion-color-light);
+}
+
+.skeleton-number, 
+.skeleton-art, 
+.skeleton-icon {
+  background: var(--ion-color-light);
+  border-radius: 4px;
+}
+
+.skeleton-number {
+  width: 24px;
+  height: 24px;
+  margin-right: 16px;
+}
+
+.skeleton-art {
+  width: 50px;
+  height: 50px;
+  margin-right: 16px;
+}
+
+.skeleton-details {
+  flex: 1;
+}
+
+.skeleton-line {
+  height: 16px;
+  background: var(--ion-color-light);
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.skeleton-line.short {
+  width: 70%;
+}
+
+.skeleton-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.skeleton-icon {
+  width: 24px;
+  height: 24px;
+}
