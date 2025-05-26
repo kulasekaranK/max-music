@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import {
   IonHeader, IonToolbar, IonContent, IonButton, IonLabel, IonList, IonToggle, IonItem,
   IonIcon, IonThumbnail, IonSkeletonText, IonButtons, IonFooter,
-  IonNote, IonModal, IonSearchbar, IonSelect, IonSelectOption, IonAvatar, IonChip, IonItemSliding, IonItemOptions, IonItemOption, IonReorderGroup, IonReorder, IonProgressBar, IonBadge, IonPopover, IonCardContent, IonCard, IonCardHeader, IonText, IonCol, IonRow, IonGrid, IonRange, IonSpinner
+  IonNote, IonModal, IonSearchbar, IonSelect, IonSelectOption, IonAvatar, IonChip, IonItemSliding, IonItemOptions, IonItemOption, IonReorderGroup, IonReorder, IonProgressBar, IonBadge, IonPopover, IonCardContent, IonCard, IonCardHeader, IonText, IonCol, IonRow, IonGrid, IonRange, IonSpinner, ToastController
 } from '@ionic/angular/standalone';
 import { FirestoreService } from '../services/firebase-service.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -102,7 +102,8 @@ export class HomePage {
     private cdr: ChangeDetectorRef,
     private firebaseService: FirestoreService,
     private sanitizer: DomSanitizer,
-    private authService: AuthService
+    private authService: AuthService,
+    private toastController: ToastController
   ) {
     addIcons({ search, play, trash });
     const devUID = 'vTGcqrdSIdfuK8mqbl8EIuSxhD92';
@@ -164,7 +165,7 @@ export class HomePage {
 
       if (this.isDevUser) {
         // 🔒 Firestore liked songs
-        this.subscribe = this.firebaseService.getCollectionData('likedSongs').subscribe(data => {
+        this.subscribe = this.firebaseService.getCollectionData('likedSongs').subscribe((data: any) => {
           this.homePageSongs.push(data);
           this.likedSongLoading = false;
           this.cdr.detectChanges();
@@ -272,14 +273,24 @@ export class HomePage {
   queue: any[] = [];
 
   addToQueue(song: any) {
-    // Avoid duplicate
     if (!this.queue.some(q => q.id === song.id)) {
       this.queue.push(song);
-      console.log('Added to Queue:', song.name);
+      this.showToast(`${song.name} added to queue`, 'primary');
     } else {
-      console.log('Already in Queue:', song.name);
+      this.showToast(`${song.name} is already in queue`, 'warning');
     }
   }
+
+  async showToast(message: string, color: string = 'secondary') {
+    const toast = await this.toastController.create({
+      message,
+      duration: 2000,
+      position: 'top',
+      color
+    });
+    toast.present();
+  }
+
   removeFromQueue(index: number) {
     this.queue.splice(index, 1);
   }
@@ -332,8 +343,10 @@ export class HomePage {
 
       if (this.isLiked) {
         await this.firebaseService.unlikeSong(song.id);
+        this.showToast(`${song.name} is Unliked`, 'warning');
       } else {
         await this.firebaseService.likeSong(song);
+        this.showToast(`${song.name} is Liked`, 'primary');
       }
     } else {
       // Use localStorage for public users – store full song object
@@ -343,10 +356,12 @@ export class HomePage {
         // Remove song by ID
         const updated = likedSongs.filter((s: any) => s.id !== song.id);
         localStorage.setItem('likedSongs', JSON.stringify(updated));
+        this.showToast(`${song.name} is Unliked`, 'warning');
       } else {
         // Push full song object if not already liked
         likedSongs.push(song);
         localStorage.setItem('likedSongs', JSON.stringify(likedSongs));
+        this.showToast(`${song.name} is Liked`, 'primary');
       }
     }
 
