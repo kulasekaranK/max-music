@@ -1,0 +1,53 @@
+name: Android APK Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # allow manual trigger
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout Code
+        uses: actions/checkout@v3
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🧪 Ionic Build (Web)
+        run: npm run build
+
+      - name: 🧱 Install Java & Android SDK
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          target: default
+          arch: x86_64
+          profile: Nexus 6
+          script: echo "✓ Android SDK ready"
+
+      - name: 🧩 Install Capacitor CLI
+        run: npm install -g @capacitor/cli
+
+      - name: 🔄 Copy Web Assets to Native
+        run: npx cap sync android
+
+      - name: 📂 Go to Android directory
+        working-directory: ./android
+        run: |
+          ./gradlew clean
+          ./gradlew assembleDebug
+
+      - name: 📤 Upload APK Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: unsigned-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
