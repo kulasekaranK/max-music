@@ -2,8 +2,8 @@ name: Android APK Build
 
 on:
   push:
-    branches: [master]
-  workflow_dispatch: # allow manual trigger
+    branches: [master] # Trigger on push to master
+  workflow_dispatch: # Manual trigger support
 
 jobs:
   build-android:
@@ -12,41 +12,36 @@ jobs:
 
     steps:
       - name: ⬇️ Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: ⚙️ Setup Node.js
-        uses: actions/setup-node@v3
+      - name: ⚙️ Setup Node.js 22
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
+          cache: "npm"
 
-      - name: 📦 Install Dependencies
+      - name: 📦 Install NPM Dependencies
         run: npm ci
 
-      - name: 🧪 Ionic Build (Web)
-        run: npm run build
-
-      - name: 🧱 Install Java & Android SDK
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 33
-          target: default
-          arch: x86_64
-          profile: Nexus 6
-          script: echo "✓ Android SDK ready"
-
-      - name: 🧩 Install Capacitor CLI
+      - name: 🧱 Install Capacitor CLI Globally
         run: npm install -g @capacitor/cli
 
-      - name: 🔄 Copy Web Assets to Native
+      - name: 🧪 Build Web App with Ionic
+        run: npm run build
+
+      - name: 🔄 Sync Capacitor with Android
         run: npx cap sync android
 
-      - name: 📂 Go to Android directory
-        working-directory: ./android
+      - name: ☕ Setup Java & Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 🧼 Clean & Build Debug APK
+        working-directory: android
         run: |
           ./gradlew clean
           ./gradlew assembleDebug
 
-      - name: 📤 Upload APK Artifact
+      - name: 📤 Upload Unsigned Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-debug-apk
