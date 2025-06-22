@@ -1,53 +1,140 @@
-name: Android Debug APK Build
+name: Debug Android Build
 
 on:
-  workflow_dispatch: # Allows manual trigger from GitHub UI
   push:
-    branches: [master] # Or your default branch
+    branches: [ master ]
   pull_request:
-    branches: [main]
+    branches: [ main, develop ]
+  workflow_dispatch: # Allows manual triggering
 
 jobs:
-  build:
-    name: Build Android Debug APK
+  debug-android:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: 📦 Checkout Code
-        uses: actions/checkout@v3
-
-      - name: 🟢 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: 🧩 Install Dependencies
-        run: npm ci
-
-      - name: ⚡️ Install Ionic CLI
-        run: npm install -g @ionic/cli
-
-      - name: ⚙️ Build Ionic Project
-        run: |
-          ionic build
-          npx cap sync android
-
-      - name: ☕ Setup Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17' # Required for latest Android builds
-
-      - name: 🛠️ Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: 🔧 Build Debug APK
-        run: |
-          cd android
-          ./gradlew assembleDebug
-
-      - name: 📤 Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug.apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'  # Latest LTS
+        cache: 'npm'
+        
+    - name: Setup Java JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'  # Latest LTS
+        distribution: 'temurin'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      with:
+        api-level: 34       # Latest stable API
+        build-tools: 34.0.0
+        
+    - name: Install dependencies
+      run: |
+        echo "📦 Installing npm dependencies..."
+        npm ci
+        
+    - name: Install Ionic CLI
+      run: |
+        echo "⚡ Installing Ionic CLI..."
+        npm install -g @ionic/cli
+        
+    - name: Build Ionic app
+      run: |
+        echo "🔨 Building Ionic app..."
+        ionic build --verbose
+        
+    - name: Add Android platform (if not exists)
+      run: |
+        echo "🤖 Adding Android platform..."
+        npx cap add android || echo "Android platform already exists"
+        
+    - name: Sync Capacitor
+      run: |
+        echo "🔄 Syncing Capacitor..."
+        npx cap sync android
+        
+    - name: Debug Android project structure
+      run: |
+        echo "📁 Checking Android project structure..."
+        ls -la android/
+        echo "📋 Android manifest info:"
+        cat android/app/src/main/AndroidManifest.xml || echo "Manifest not found"
+        echo "🏗️ Gradle files:"
+        ls -la android/app/
+        
+    - name: Check Gradle properties
+      run: |
+        echo "⚙️ Gradle properties:"
+        cat android/gradle.properties || echo "gradle.properties not found"
+        echo "📱 App build.gradle:"
+        cat android/app/build.gradle || echo "build.gradle not found"
+        
+    - name: Make gradlew executable
+      run: |
+        echo "🔧 Making gradlew executable..."
+        chmod +x android/gradlew
+        
+    - name: Clean Android build
+      run: |
+        echo "🧹 Cleaning Android build..."
+        cd android && ./gradlew clean --stacktrace --info
+        
+    - name: Debug build with verbose output
+      run: |
+        echo "🔍 Building Android APK with debug info..."
+        cd android && ./gradlew assembleDebug --stacktrace --info --debug
+      continue-on-error: true
+      
+    - name: Check build outputs
+      run: |
+        echo "📱 Checking build outputs..."
+        find android/app/build -name "*.apk" -type f || echo "No APK files found"
+        echo "📊 Build directory structure:"
+        ls -la android/app/build/ || echo "Build directory not found"
+        
+    - name: Gradle dependencies debug
+      if: failure()
+      run: |
+        echo "🔍 Debugging dependencies..."
+        cd android && ./gradlew dependencies --configuration debugCompileClasspath
+        
+    - name: Show Android SDK info
+      if: failure()
+      run: |
+        echo "📱 Android SDK info:"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --list_installed
+        echo "🎯 Available build tools:"
+        ls $ANDROID_HOME/build-tools/
+        
+    - name: Environment debug info
+      if: failure()
+      run: |
+        echo "🌍 Environment variables:"
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        echo "JAVA_HOME: $JAVA_HOME"
+        echo "Node version: $(node --version)"
+        echo "NPM version: $(npm --version)"
+        echo "Ionic version: $(ionic --version)"
+        
+    - name: Upload build logs
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-build-logs
+        path: |
+          android/app/build/outputs/logs/
+          android/build/outputs/logs/
+        retention-days: 7
+        
+    - name: Upload APK (if successful)
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: debug-apk
+        path: android/app/build/outputs/apk/debug/*.apk
+        retention-days: 30
