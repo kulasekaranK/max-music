@@ -45,15 +45,13 @@ export class AuthService {
     }
   }
 
-  async loginWithGoogle() {
+  async loginWithGoogle(): Promise<User | null> {
     const provider = new GoogleAuthProvider();
-
     try {
       if (this.platform.is('capacitor')) {
-        // 🔁 Use redirect login on mobile
         await signInWithRedirect(this.auth, provider);
+        return null; // <-- important: still return something
       } else {
-        // 🖥️ Use popup on web
         const result = await signInWithPopup(this.auth, provider);
         this.user = result.user;
         localStorage.setItem('user', JSON.stringify(result.user));
@@ -61,9 +59,10 @@ export class AuthService {
       }
     } catch (error) {
       console.error('Login error:', error);
-      return null;
+      return null; // <-- fix: return null on error
     }
   }
+  
 
   logout() {
     localStorage.removeItem('user');
