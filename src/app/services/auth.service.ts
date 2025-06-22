@@ -1,12 +1,25 @@
-import { Injectable } from '@angular/core';
-import { Auth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User, getAuth } from '@angular/fire/auth';
+import { Injectable, inject } from '@angular/core';
+import {
+  Auth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signOut,
+  onAuthStateChanged,
+  User
+} from '@angular/fire/auth';
+import { Platform } from '@ionic/angular';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private auth = inject(Auth);
+  private platform = inject(Platform);
   user: User | null = null;
   private authReady: Promise<User | null>;
 
-  constructor(private auth: Auth) {
+  constructor() {
+    // Detect login state
     this.authReady = new Promise((resolve) => {
       onAuthStateChanged(this.auth, (user) => {
         this.user = user;
@@ -15,16 +28,37 @@ export class AuthService {
         } else {
           localStorage.removeItem('user');
         }
-        resolve(user); // Resolve once auth state is known
+        resolve(user);
       });
     });
+
+    // Handle redirect result only on mobile
+    if (this.platform.is('capacitor')) {
+      getRedirectResult(this.auth).then((result) => {
+        if (result?.user) {
+          this.user = result.user;
+          localStorage.setItem('user', JSON.stringify(result.user));
+        }
+      }).catch((err) => {
+        console.error('Redirect error:', err);
+      });
+    }
   }
 
   async loginWithGoogle() {
     const provider = new GoogleAuthProvider();
+
     try {
-      const result = await signInWithPopup(this.auth, provider);
-      return result.user;
+      if (this.platform.is('capacitor')) {
+        // 🔁 Use redirect login on mobile
+        await signInWithRedirect(this.auth, provider);
+      } else {
+        // 🖥️ Use popup on web
+        const result = await signInWithPopup(this.auth, provider);
+        this.user = result.user;
+        localStorage.setItem('user', JSON.stringify(result.user));
+        return result.user;
+      }
     } catch (error) {
       console.error('Login error:', error);
       return null;
@@ -32,6 +66,7 @@ export class AuthService {
   }
 
   logout() {
+    localStorage.removeItem('user');
     return signOut(this.auth);
   }
 
@@ -39,7 +74,6 @@ export class AuthService {
     if (this.user) return this.user;
     return this.authReady;
   }
-  
 
   isLoggedIn(): boolean {
     return !!this.auth.currentUser || !!localStorage.getItem('user');
