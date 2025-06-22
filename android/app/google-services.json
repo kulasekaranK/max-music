@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "622086667091",
+    "project_id": "max-tube-official",
+    "storage_bucket": "max-tube-official.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:622086667091:android:5dc83764e2f70de00bbfa6",
+        "android_client_info": {
+          "package_name": "com.max.tunzo"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "622086667091-17ll1ms8rljekhn354dhct059khr1r6h.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBGPANCsrVtr-Z6_ggHMiQ5na3VUrlcTLA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "622086667091-17ll1ms8rljekhn354dhct059khr1r6h.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
