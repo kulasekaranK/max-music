@@ -1,238 +1,48 @@
-name: Debug Android Build
+name: Build Android APK
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master ] # Change this to your main branch name
   pull_request:
-    branches: [ main, develop ]
-  workflow_dispatch: # Allows manual triggering
+    branches: [ main ]
 
 jobs:
-  debug-android:
+  build-android:
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
       with:
-        node-version: '20'  # Updated to Node 20 for Capacitor CLI compatibility
-        cache: 'npm'
-        
-    - name: Setup Java JDK
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-      with:
-        cmdline-tools-version: '11076708'
-        packages: 'platform-tools platforms;android-34 platforms;android-33 build-tools;34.0.0 build-tools;33.0.0'
-        
-    - name: Accept Android SDK licenses
-      run: |
-        echo "📝 Accepting Android SDK licenses..."
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-        
+        node-version: '20' # Use the Node version your project requires
+
     - name: Install dependencies
       run: |
-        echo "📦 Installing npm dependencies..."
-        npm ci --legacy-peer-deps
-        echo "✅ Dependencies installed. Verifying key packages..."
-        npm list @capacitor/core @capacitor/android --depth=0 || echo "Some Capacitor packages missing"
-        
-    - name: Install Ionic CLI and Capacitor
-      run: |
-        echo "⚡ Installing Ionic CLI and Capacitor..."
-        npm install -g @ionic/cli@latest @capacitor/cli@latest
-        
-    - name: Check project structure
-      run: |
-        echo "📋 Checking project files..."
-        ls -la
-        echo "📱 Package.json dependencies:"
-        cat package.json | grep -A 20 -B 5 "dependencies\|devDependencies" || echo "Could not read package.json"
-        echo "⚙️ Capacitor config:"
-        cat capacitor.config.ts || cat capacitor.config.json || echo "No capacitor config found"
-        
-    - name: Fix Angular build optimization for Capacitor 7
-      run: |
-        echo "🔧 Fixing Angular build configuration for Capacitor 7 compatibility..."
-        # Check if angular.json exists and update build configuration
-        if [ -f "angular.json" ]; then
-          echo "📝 Updating angular.json to disable optimization for Android builds..."
-          # Create a backup
-          cp angular.json angular.json.backup
-          # Update the configuration to disable optimization
-          npm install -g json
-          json -I -f angular.json -e '
-            if (this.projects && Object.keys(this.projects).length > 0) {
-              const projectName = Object.keys(this.projects)[0];
-              if (!this.projects[projectName].architect.build.configurations.production) {
-                this.projects[projectName].architect.build.configurations.production = {};
-              }
-              this.projects[projectName].architect.build.configurations.production.optimization = false;
-            }
-          ' || echo "Could not modify angular.json automatically"
-          echo "✅ Angular configuration updated"
-        else
-          echo "⚠️ No angular.json found"
-        fi
-    - name: Build Ionic app with Capacitor 7 compatibility
-      run: |
-        echo "🔨 Building Ionic app with Capacitor 7 compatibility..."
-        # Build with production configuration but optimization disabled
-        ionic build --prod --verbose
-        echo "✅ Build complete. Checking output directory:"
-        ls -la www/ || ls -la dist/ || echo "No build output directory found"
-        echo "📁 Checking for browser directory (Angular 19 structure):"
-        ls -la www/browser/ || ls -la dist/*/browser/ || echo "Browser directory not found"
-      run: |
-        echo "📦 Installing Capacitor core dependencies..."
-        npm install @capacitor/core @capacitor/cli @capacitor/android --save
-        echo "📋 Verifying Capacitor installation..."
-        npx cap --version || echo "Capacitor CLI installation failed"
-        
-    - name: Initialize Capacitor (if needed)
-      run: |
-        echo "🔧 Initializing Capacitor..."
-        npx cap init --web-dir=www || echo "Capacitor already initialized or failed to init"
-        
+        npm install -g @ionic/cli cordova-res native-run
+        npm install
+
+    - name: Set up JDK
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'zulu' # Alternative: 'temurin' or 'corretto'
+        java-version: '11' # Java 11 is typically required for Android builds
+
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v2
+
     - name: Add Android platform
       run: |
-        echo "🤖 Adding Android platform..."
-        npx cap add android || echo "Android platform already exists or failed to add"
-        
-    - name: Fix Android project structure
+        ionic cordova platform add android@latest
+
+    - name: Build Android APK
       run: |
-        echo "🔧 Ensuring Android project structure..."
-        if [ ! -d "android" ]; then
-          echo "❌ Android directory not found! Capacitor add android failed."
-          exit 1
-        fi
-        
-        # Update minimum SDK version for Capacitor 7 compatibility
-        cat > android/gradle.properties << 'EOF'
-              android.useAndroidX=true
-              android.enableJetifier=true
-              android.compileSdkVersion=34
-              android.targetSdkVersion=34
-              android.minSdkVersion=23
-              org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError
-              org.gradle.parallel=true
-              org.gradle.configureondemand=true
-              org.gradle.daemon=true
-              org.gradle.caching=true
-              EOF
-        
-             # Ensure gradlew is executable
-             chmod +x android/gradlew
-        
-    - name: Sync Capacitor
-      run: |
-        echo "🔄 Syncing Capacitor..."
-        npx cap sync android --verbose
-        
-    - name: Verify Android project
-      run: |
-        echo "📁 Android project verification..."
-        ls -la android/
-        echo "📋 Android manifest:"
-        cat android/app/src/main/AndroidManifest.xml || echo "❌ Manifest not found"
-        echo "🏗️ Build.gradle (app):"
-        cat android/app/build.gradle || echo "❌ App build.gradle not found"
-        echo "🏗️ Build.gradle (project):"
-        cat android/build.gradle || echo "❌ Project build.gradle not found"
-        
-    - name: Clean and prepare build
-      run: |
-        echo "🧹 Cleaning previous builds..."
-        cd android
-        ./gradlew clean --stacktrace --info
-        
-    - name: Pre-build diagnostics
-      run: |
-        echo "🔍 Pre-build diagnostics..."
-        cd android
-        echo "📋 Gradle version:"
-        ./gradlew --version
-        echo "📦 Project dependencies:"
-        ./gradlew dependencies --configuration debugCompileClasspath | head -50
-        
-    - name: Build Debug APK with detailed logging
-      run: |
-        echo "🔨 Building Debug APK..."
-        cd android
-        ./gradlew assembleDebug \
-          --stacktrace \
-          --info \
-          --debug \
-          --gradle-user-home ~/.gradle \
-          -Dorg.gradle.logging.level=info \
-          -Dorg.gradle.console=plain
-      continue-on-error: true
-      
-    - name: Alternative build attempt
-      if: failure()
-      run: |
-        echo "🔄 Attempting alternative build approach..."
-        cd android
-        echo "🧹 Deep clean..."
-        ./gradlew clean cleanBuildCache --stacktrace
-        echo "🔄 Refreshing dependencies..."
-        ./gradlew --refresh-dependencies
-        echo "🔨 Building with different flags..."
-        ./gradlew assembleDebug --no-daemon --no-build-cache --stacktrace --warn
-        
-    - name: Check for APK files
-      run: |
-        echo "🔍 Searching for APK files..."
-        find . -name "*.apk" -type f 2>/dev/null || echo "No APK files found"
-        echo "📊 Android build outputs:"
-        find android -path "*/build/outputs/*" -type f 2>/dev/null || echo "No build outputs found"
-        
-    - name: Comprehensive error diagnosis
-      if: failure()
-      run: |
-        echo "🔍 Error diagnosis..."
-        echo "=== Environment ==="
-        echo "Node: $(node --version)"
-        echo "NPM: $(npm --version)"  
-        echo "Java: $(java -version 2>&1)"
-        echo "Android SDK: $ANDROID_SDK_ROOT"
-        echo "=== Ionic Info ==="
-        ionic info || echo "Could not get ionic info"
-        echo "=== Capacitor Info ==="
-        npx cap doctor || echo "Could not run cap doctor"
-        echo "=== Recent logs ==="
-        find android -name "*.log" -type f -exec echo "=== {} ===" \; -exec tail -50 {} \; 2>/dev/null || echo "No log files found"
-        echo "=== Gradle daemon logs ==="  
-        find ~/.gradle -name "daemon*.log" -type f -exec echo "=== {} ===" \; -exec tail -30 {} \; 2>/dev/null || echo "No daemon logs"
-        
-    - name: Upload comprehensive logs
-      if: failure()
-      uses: actions/upload-artifact@v4
+        ionic cordova build android --prod --release
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v3
       with:
-        name: build-failure-logs
-        path: |
-          android/app/build/outputs/logs/
-          android/build/outputs/logs/ 
-          ~/.gradle/daemon/
-          android/gradle.log
-        retention-days: 7
-        if-no-files-found: ignore
-        
-    - name: Upload successful APK
-      if: success()
-      uses: actions/upload-artifact@v4
-      with:
-        name: ionic-debug-apk
-        path: |
-          android/app/build/outputs/apk/debug/*.apk
-          android/app/build/outputs/apk/**/*.apk
-        retention-days: 30
-        if-no-files-found: warn
+        name: android-apk
+        path: platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk
