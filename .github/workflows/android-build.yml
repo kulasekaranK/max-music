@@ -18,7 +18,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'  # Changed to Node 18 for better compatibility
+        node-version: '20'  # Updated to Node 20 for Capacitor CLI compatibility
         cache: 'npm'
         
     - name: Setup Java JDK
@@ -42,6 +42,8 @@ jobs:
       run: |
         echo "📦 Installing npm dependencies..."
         npm ci --legacy-peer-deps
+        echo "✅ Dependencies installed. Verifying key packages..."
+        npm list @capacitor/core @capacitor/android --depth=0 || echo "Some Capacitor packages missing"
         
     - name: Install Ionic CLI and Capacitor
       run: |
@@ -57,17 +59,43 @@ jobs:
         echo "⚙️ Capacitor config:"
         cat capacitor.config.ts || cat capacitor.config.json || echo "No capacitor config found"
         
-    - name: Build Ionic app
+    - name: Fix Angular build optimization for Capacitor 7
       run: |
-        echo "🔨 Building Ionic app..."
-        ionic build --verbose
-        echo "✅ Build complete. Checking www directory:"
-        ls -la www/ || echo "www directory not found"
-        
-    - name: Install Capacitor dependencies
+        echo "🔧 Fixing Angular build configuration for Capacitor 7 compatibility..."
+        # Check if angular.json exists and update build configuration
+        if [ -f "angular.json" ]; then
+          echo "📝 Updating angular.json to disable optimization for Android builds..."
+          # Create a backup
+          cp angular.json angular.json.backup
+          # Update the configuration to disable optimization
+          npm install -g json
+          json -I -f angular.json -e '
+            if (this.projects && Object.keys(this.projects).length > 0) {
+              const projectName = Object.keys(this.projects)[0];
+              if (!this.projects[projectName].architect.build.configurations.production) {
+                this.projects[projectName].architect.build.configurations.production = {};
+              }
+              this.projects[projectName].architect.build.configurations.production.optimization = false;
+            }
+          ' || echo "Could not modify angular.json automatically"
+          echo "✅ Angular configuration updated"
+        else
+          echo "⚠️ No angular.json found"
+        fi
+    - name: Build Ionic app with Capacitor 7 compatibility
+      run: |
+        echo "🔨 Building Ionic app with Capacitor 7 compatibility..."
+        # Build with production configuration but optimization disabled
+        ionic build --prod --verbose
+        echo "✅ Build complete. Checking output directory:"
+        ls -la www/ || ls -la dist/ || echo "No build output directory found"
+        echo "📁 Checking for browser directory (Angular 19 structure):"
+        ls -la www/browser/ || ls -la dist/*/browser/ || echo "Browser directory not found"
       run: |
         echo "📦 Installing Capacitor core dependencies..."
         npm install @capacitor/core @capacitor/cli @capacitor/android --save
+        echo "📋 Verifying Capacitor installation..."
+        npx cap --version || echo "Capacitor CLI installation failed"
         
     - name: Initialize Capacitor (if needed)
       run: |
@@ -87,13 +115,13 @@ jobs:
           exit 1
         fi
         
-        # Create gradle.properties with proper settings
+        # Update minimum SDK version for Capacitor 7 compatibility
         cat > android/gradle.properties << 'EOF'
               android.useAndroidX=true
               android.enableJetifier=true
               android.compileSdkVersion=34
               android.targetSdkVersion=34
-              android.minSdkVersion=22
+              android.minSdkVersion=23
               org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError
               org.gradle.parallel=true
               org.gradle.configureondemand=true
