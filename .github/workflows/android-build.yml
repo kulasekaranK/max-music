@@ -89,20 +89,20 @@ jobs:
         
         # Create gradle.properties with proper settings
         cat > android/gradle.properties << 'EOF'
-android.useAndroidX=true
-android.enableJetifier=true
-android.compileSdkVersion=34
-android.targetSdkVersion=34
-android.minSdkVersion=22
-org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError
-org.gradle.parallel=true
-org.gradle.configureondemand=true
-org.gradle.daemon=true
-org.gradle.caching=true
-EOF
+              android.useAndroidX=true
+              android.enableJetifier=true
+              android.compileSdkVersion=34
+              android.targetSdkVersion=34
+              android.minSdkVersion=22
+              org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError
+              org.gradle.parallel=true
+              org.gradle.configureondemand=true
+              org.gradle.daemon=true
+              org.gradle.caching=true
+              EOF
         
-        # Ensure gradlew is executable
-        chmod +x android/gradlew
+             # Ensure gradlew is executable
+             chmod +x android/gradlew
         
     - name: Sync Capacitor
       run: |
