@@ -7,10 +7,10 @@ on:
     branches: [ main ]
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '20' # Required for Capacitor 7+
   JAVA_VERSION: '17'
   ANDROID_BUILD_TOOLS_VERSION: '34.0.0'
-  ANDROID_SDK_VERSION: '9477386' # Latest stable as of 2024
+  GRADLE_VERSION: '8.4'
 
 jobs:
   build-android:
@@ -20,29 +20,37 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Node.js
+    - name: Set up Node.js 20
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
 
-    - name: Install dependencies (clean install)
+    - name: Clean install with modern dependencies
       run: |
-        npm ci --legacy-peer-deps
-        npm audit fix --force
+        # Force update npm to latest
+        npm install -g npm@latest
+        
+        # Clean install with modern peer dependency handling
+        npm ci --ignore-scripts
+        
+        # Update problematic dependencies
+        npm install glob@latest rimraf@latest @xmldom/xmldom@latest
+        
+        # Final install with audit fixes
+        npm install --audit
 
     - name: Build web assets
       run: |
         npm run build --if-present || ionic build
-
-    - name: Verify www directory exists
-      run: |
+        
+        # Verify www directory exists
         if [ ! -d "www" ]; then
           echo "Error: www directory not found after build!"
           exit 1
         fi
 
-    - name: Set up JDK
+    - name: Set up JDK 17
       uses: actions/setup-java@v3
       with:
         distribution: 'temurin'
@@ -52,22 +60,27 @@ jobs:
       uses: android-actions/setup-android@v3
       with:
         build-tools-version: ${{ env.ANDROID_BUILD_TOOLS_VERSION }}
-        sdk-version: ${{ env.ANDROID_SDK_VERSION }}
+        sdk-version: '9477386' # Latest stable SDK
 
-    - name: Accept licenses
+    - name: Accept Android licenses
       run: |
         yes | sdkmanager --licenses || true
 
-    - name: Sync Capacitor
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: ${{ env.GRADLE_VERSION }}
+
+    - name: Sync Capacitor Android
       run: |
         npx cap sync android
 
-    - name: Build signed APK
+    - name: Build Release APK
       run: |
         cd android
-        ./gradlew assembleRelease
+        ./gradlew assembleRelease --no-daemon
 
-    - name: Upload APK
+    - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
         name: app-release
