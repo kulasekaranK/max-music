@@ -9,7 +9,7 @@ on:
 env:
   NODE_VERSION: '20'
   JAVA_VERSION: '17'
-  ANDROID_COMPILE_SDK: '35'
+  ANDROID_COMPILE_SDK: '34'
   ANDROID_BUILD_TOOLS: '34.0.0'
   GRADLE_VERSION: '8.4'
 
@@ -30,7 +30,8 @@ jobs:
     - name: Install dependencies
       run: |
         npm install -g npm@latest
-        npm ci
+        npm ci --legacy-peer-deps
+        npm install glob@latest rimraf@latest @xmldom/xmldom@latest
         npm audit fix --force
 
     - name: Build web assets
@@ -64,17 +65,11 @@ jobs:
 
     - name: Configure Android project
       run: |
-        # Remove google-services.json if not configured
+        # Remove google-services plugin if file doesn't exist
         if [ ! -f "android/app/google-services.json" ]; then
           echo "Removing google-services plugin as file doesn't exist"
           sed -i '/apply plugin: "com.google.gms.google-services"/d' android/app/build.gradle
           sed -i '/classpath "com.google.gms:google-services/d' android/build.gradle
-        fi
-
-        # Update package name if still using default
-        if grep -q "io.ionic.starter" android/app/build.gradle; then
-          echo "Updating default package name"
-          sed -i 's/io.ionic.starter/com.yourcompany.maxmusic/' android/app/build.gradle
         fi
 
     - name: Sync Capacitor

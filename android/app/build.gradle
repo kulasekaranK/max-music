@@ -2,11 +2,11 @@ apply plugin: 'com.android.application'
 apply plugin: 'com.google.gms.google-services'
 
 android {
-    namespace "io.ionic.starter"
+    namespace "com.max.tunzo"
     compileSdk 34
 
     defaultConfig {
-        applicationId "io.ionic.starter"
+        applicationId "com.max.tunzo"
         minSdk 23
         targetSdk 34
         versionCode 1
