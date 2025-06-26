@@ -7,10 +7,10 @@ on:
     branches: [ main ]
 
 env:
-  NODE_VERSION: '20' # Required for Capacitor 7+
+  NODE_VERSION: '20'
   JAVA_VERSION: '17'
-  ANDROID_BUILD_TOOLS_VERSION: '34.0.0'
-  ANDROID_COMPILE_SDK: '35' # Updated to fix the core-ktx error
+  ANDROID_COMPILE_SDK: '35'
+  ANDROID_BUILD_TOOLS: '34.0.0'
   GRADLE_VERSION: '8.4'
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Node.js 20
+    - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
@@ -30,9 +30,8 @@ jobs:
     - name: Install dependencies
       run: |
         npm install -g npm@latest
-        npm ci --ignore-scripts
-        npm install glob@latest rimraf@latest @xmldom/xmldom@latest
-        npm install --audit
+        npm ci
+        npm audit fix --force
 
     - name: Build web assets
       run: |
@@ -42,7 +41,7 @@ jobs:
           exit 1
         fi
 
-    - name: Set up JDK 17
+    - name: Set up JDK
       uses: actions/setup-java@v3
       with:
         distribution: 'temurin'
@@ -51,10 +50,9 @@ jobs:
     - name: Set up Android SDK
       uses: android-actions/setup-android@v3
       with:
-        build-tools-version: ${{ env.ANDROID_BUILD_TOOLS_VERSION }}
+        build-tools-version: ${{ env.ANDROID_BUILD_TOOLS }}
         sdk-version: '9477386'
         ndk-version: '25.2.9519653'
-        cmake-version: '3.22.1'
 
     - name: Accept licenses
       run: |
@@ -64,11 +62,20 @@ jobs:
       run: |
         sdkmanager "platforms;android-${{ env.ANDROID_COMPILE_SDK }}"
 
-    - name: Configure Gradle properties
+    - name: Configure Android project
       run: |
-        cd android
-        echo "android.compileSdkVersion=${{ env.ANDROID_COMPILE_SDK }}" >> gradle.properties
-        echo "android.targetSdkVersion=${{ env.ANDROID_COMPILE_SDK }}" >> gradle.properties
+        # Remove google-services.json if not configured
+        if [ ! -f "android/app/google-services.json" ]; then
+          echo "Removing google-services plugin as file doesn't exist"
+          sed -i '/apply plugin: "com.google.gms.google-services"/d' android/app/build.gradle
+          sed -i '/classpath "com.google.gms:google-services/d' android/build.gradle
+        fi
+
+        # Update package name if still using default
+        if grep -q "io.ionic.starter" android/app/build.gradle; then
+          echo "Updating default package name"
+          sed -i 's/io.ionic.starter/com.yourcompany.maxmusic/' android/app/build.gradle
+        fi
 
     - name: Sync Capacitor
       run: |
