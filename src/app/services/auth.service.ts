@@ -3,14 +3,14 @@ import {
   Auth,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithCredential,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   onAuthStateChanged,
   User,
   UserCredential
 } from '@angular/fire/auth';
 import { Platform } from '@ionic/angular';
-import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { Capacitor } from '@capacitor/core';
 
 @Injectable({ providedIn: 'root' })
@@ -21,11 +21,6 @@ export class AuthService {
   private authReady: Promise<User | null>;
 
   constructor() {
-    // Initialize Google Auth plugin for native apps
-    if (Capacitor.isNativePlatform()) {
-      GoogleAuth.initialize();
-    }
-
     // Detect auth state changes
     this.authReady = new Promise((resolve) => {
       onAuthStateChanged(this.auth, (user) => {
@@ -38,21 +33,29 @@ export class AuthService {
         resolve(user);
       });
     });
+
+    // Handle redirect result for mobile
+    if (this.platform.is('capacitor')) {
+      getRedirectResult(this.auth).then((result) => {
+        if (result?.user) {
+          this.user = result.user;
+          localStorage.setItem('user', JSON.stringify(result.user));
+        }
+      }).catch((err) => {
+        console.error('Redirect error:', err);
+      });
+    }
   }
 
   async loginWithGoogle(): Promise<User | null> {
     const provider = new GoogleAuthProvider();
     try {
       if (this.platform.is('capacitor')) {
-        // Native mobile flow
-        const googleUser = await GoogleAuth.signIn();
-        const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
-        const result = await signInWithCredential(this.auth, credential);
-        this.user = result.user;
-        localStorage.setItem('user', JSON.stringify(result.user));
-        return result.user;
+        // Mobile flow with redirect
+        await signInWithRedirect(this.auth, provider);
+        return null; // Will be handled by getRedirectResult
       } else {
-        // Web flow
+        // Web flow with popup
         const result = await signInWithPopup(this.auth, provider);
         this.user = result.user;
         localStorage.setItem('user', JSON.stringify(result.user));
@@ -66,9 +69,6 @@ export class AuthService {
 
   async logout(): Promise<void> {
     try {
-      if (this.platform.is('capacitor')) {
-        await GoogleAuth.signOut();
-      }
       await signOut(this.auth);
       this.user = null;
       localStorage.removeItem('user');
