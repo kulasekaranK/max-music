@@ -53,11 +53,8 @@ jobs:
       uses: android-actions/setup-android@v3
       with:
         packages: |
-          build-tools;34.0.0
-          platforms;android-34
-          platform-tools
-          cmdline-tools;11.0
-        accept-android-sdk-licenses: true
+          api-level: 34       # Latest stable APIAdd commentMore actions
+          build-tools: 34.0.0
 
 
 
