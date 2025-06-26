@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android Test APK
 
 on:
   push:
@@ -9,8 +9,6 @@ on:
 env:
   NODE_VERSION: '20'
   JAVA_VERSION: '17'
-  ANDROID_COMPILE_SDK: '34'
-  ANDROID_BUILD_TOOLS: '34.0.0'
   GRADLE_VERSION: '8.4'
 
 jobs:
@@ -51,17 +49,13 @@ jobs:
     - name: Set up Android SDK
       uses: android-actions/setup-android@v3
       with:
-        build-tools-version: ${{ env.ANDROID_BUILD_TOOLS }}
+        build-tools-version: '34.0.0'
         sdk-version: '9477386'
         ndk-version: '25.2.9519653'
 
     - name: Accept licenses
       run: |
         yes | sdkmanager --licenses || true
-
-    - name: Update Android SDK
-      run: |
-        sdkmanager "platforms;android-${{ env.ANDROID_COMPILE_SDK }}"
 
     - name: Configure Android project
       run: |
@@ -76,13 +70,13 @@ jobs:
       run: |
         npx cap sync android
 
-    - name: Build Release APK
+    - name: Build Debug APK
       run: |
         cd android
-        ./gradlew assembleRelease --no-daemon --stacktrace
+        ./gradlew assembleDebug --no-daemon --stacktrace
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: app-release
-        path: android/app/build/outputs/apk/release/*.apk
+        name: app-debug
+        path: android/app/build/outputs/apk/debug/*.apk
