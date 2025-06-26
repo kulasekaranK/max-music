@@ -12,12 +12,13 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4 # Also updated checkout to v4
 
     - name: Set up Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4 # Updated to v4
       with:
         node-version: '20' # Use the Node version your project requires
+        cache: 'npm' # Adds caching for faster builds
 
     - name: Install dependencies
       run: |
@@ -42,7 +43,7 @@ jobs:
         ionic cordova build android --prod --release
 
     - name: Upload APK artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4 # Updated to v4
       with:
         name: android-apk
         path: platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk
