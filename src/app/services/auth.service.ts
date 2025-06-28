@@ -31,29 +31,29 @@ export class AuthService {
     });
   }
 
-  public async loginWithGoogle(): Promise<void> {
+  public async loginWithGoogle(): Promise<User | null> {
     try {
       if (!Capacitor.isNativePlatform()) {
         throw new Error('Native Google Sign-In only works on device');
       }
-
-      // Step 1: Native Google Sign-In
+  
       const result = await FirebaseAuthentication.signInWithGoogle({
-        customParameters: [{
-          key: 'prompt',
-          value: 'select_account'
-        }]
+        customParameters: [{ key: 'prompt', value: 'select_account' }]
       });
-
-      // Step 2: Web Firebase Auth sign-in
+  
       const credential = GoogleAuthProvider.credential(result.credential?.idToken);
-      await signInWithCredential(this.auth, credential);
+      const userCredential = await signInWithCredential(this.auth, credential);
+  
+      this.user = userCredential.user;
+      localStorage.setItem('user', JSON.stringify(userCredential.user));
+  
+      return userCredential.user;
     } catch (error) {
       console.error('Google login error:', error);
-      throw error;
+      return null;
     }
   }
-
+  
   async logout(): Promise<void> {
     try {
       await signOut(this.auth);
