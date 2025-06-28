@@ -2,21 +2,17 @@ import { Injectable, inject } from '@angular/core';
 import {
   Auth,
   GoogleAuthProvider,
-  signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithCredential,
   signOut,
   onAuthStateChanged,
-  User,
-  UserCredential
+  User
 } from '@angular/fire/auth';
-import { Platform } from '@ionic/angular';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import { Capacitor } from '@capacitor/core';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private auth = inject(Auth);
-  private platform = inject(Platform);
   user: User | null = null;
   private authReady: Promise<User | null>;
 
@@ -33,37 +29,28 @@ export class AuthService {
         resolve(user);
       });
     });
-
-    // Handle redirect result for mobile
-    if (this.platform.is('capacitor')) {
-      getRedirectResult(this.auth).then((result) => {
-        if (result?.user) {
-          this.user = result.user;
-          localStorage.setItem('user', JSON.stringify(result.user));
-        }
-      }).catch((err) => {
-        console.error('Redirect error:', err);
-      });
-    }
   }
 
-  async loginWithGoogle(): Promise<User | null> {
-    const provider = new GoogleAuthProvider();
+  public async loginWithGoogle(): Promise<void> {
     try {
-      if (this.platform.is('capacitor')) {
-        // Mobile flow with redirect
-        await signInWithRedirect(this.auth, provider);
-        return null; // Will be handled by getRedirectResult
-      } else {
-        // Web flow with popup
-        const result = await signInWithPopup(this.auth, provider);
-        this.user = result.user;
-        localStorage.setItem('user', JSON.stringify(result.user));
-        return result.user;
+      if (!Capacitor.isNativePlatform()) {
+        throw new Error('Native Google Sign-In only works on device');
       }
+
+      // Step 1: Native Google Sign-In
+      const result = await FirebaseAuthentication.signInWithGoogle({
+        customParameters: [{
+          key: 'prompt',
+          value: 'select_account'
+        }]
+      });
+
+      // Step 2: Web Firebase Auth sign-in
+      const credential = GoogleAuthProvider.credential(result.credential?.idToken);
+      await signInWithCredential(this.auth, credential);
     } catch (error) {
-      console.error('Login error:', error);
-      return null;
+      console.error('Google login error:', error);
+      throw error;
     }
   }
 
