@@ -5,7 +5,8 @@ import {
   signInWithCredential,
   signOut,
   onAuthStateChanged,
-  User
+  User,
+  signInWithPopup
 } from '@angular/fire/auth';
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import { Capacitor } from '@capacitor/core';
@@ -33,27 +34,35 @@ export class AuthService {
 
   public async loginWithGoogle(): Promise<User | null> {
     try {
-      if (!Capacitor.isNativePlatform()) {
-        throw new Error('Native Google Sign-In only works on device');
+      let user: User | null = null;
+  
+      if (Capacitor.isNativePlatform()) {
+        // ✅ Native Google Login
+        const result = await FirebaseAuthentication.signInWithGoogle({
+          customParameters: [{ key: 'prompt', value: 'select_account' }]
+        });
+  
+        const credential = GoogleAuthProvider.credential(result.credential?.idToken);
+        const userCredential = await signInWithCredential(this.auth, credential);
+        user = userCredential.user;
+      } else {
+        // ✅ Web Google Login
+        const provider = new GoogleAuthProvider();
+        const userCredential = await signInWithPopup(this.auth, provider);
+        user = userCredential.user;
       }
   
-      const result = await FirebaseAuthentication.signInWithGoogle({
-        customParameters: [{ key: 'prompt', value: 'select_account' }]
-      });
+      if (user) {
+        this.user = user;
+        localStorage.setItem('user', JSON.stringify(user));
+      }
   
-      const credential = GoogleAuthProvider.credential(result.credential?.idToken);
-      const userCredential = await signInWithCredential(this.auth, credential);
-  
-      this.user = userCredential.user;
-      localStorage.setItem('user', JSON.stringify(userCredential.user));
-  
-      return userCredential.user;
+      return user;
     } catch (error) {
       console.error('Google login error:', error);
       return null;
     }
   }
-  
   async logout(): Promise<void> {
     try {
       await signOut(this.auth);
